@@ -84,6 +84,33 @@ export interface LightOptions {
     exclude?: boolean;
 }
 
+export interface AddonOptions {
+    /**
+     * Whether add-on sensors reported by the Shelly device should be discovered automatically.
+     */
+    autoDiscover?: boolean;
+    /**
+     * Whether temperature sensors reported by a Shelly Add-on should be exposed to HomeKit.
+     */
+    temperature?: boolean;
+    /**
+     * Whether humidity sensors reported by a Shelly Add-on should be exposed to HomeKit.
+     */
+    humidity?: boolean;
+    /**
+     * Whether digital inputs reported by a Shelly Add-on should be exposed to HomeKit.
+     */
+    digitalInput?: boolean;
+    /**
+     * Whether analog inputs reported by a Shelly Add-on should be exposed to HomeKit.
+     */
+    analogInput?: boolean;
+    /**
+     * Whether voltmeters reported by a Shelly Add-on should be exposed to HomeKit.
+     */
+    voltmeter?: boolean;
+}
+
 export interface DeviceOptions {
     /**
      * The name of the device.
@@ -121,6 +148,10 @@ export interface DeviceOptions {
      * Options for devices that have multiple switches.
      */
     ['switch:3']?: SwitchOptions;
+    /**
+     * Options for sensors connected through a Shelly Add-on.
+     */
+    addon?: AddonOptions;
     /**
      * Options for devices that have a cover.
      */

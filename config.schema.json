@@ -223,6 +223,24 @@
                                     "description": "Create a HomeKit Humidity Sensor service when the Shelly Add-on reports a humidity value.",
                                     "type": "boolean",
                                     "default": true
+                                },
+                                "digitalInput": {
+                                    "title": "Digital input",
+                                    "description": "Create a HomeKit service when the Shelly Add-on reports a digital input value.",
+                                    "type": "boolean",
+                                    "default": true
+                                },
+                                "analogInput": {
+                                    "title": "Analog input",
+                                    "description": "Create a HomeKit service when the Shelly Add-on reports an analog input value.",
+                                    "type": "boolean",
+                                    "default": true
+                                },
+                                "voltmeter": {
+                                    "title": "Voltmeter",
+                                    "description": "Create a HomeKit service when the Shelly Add-on reports a voltage value.",
+                                    "type": "boolean",
+                                    "default": true
                                 }
                             }
                         },
@@ -360,6 +378,24 @@
                         },
                         {
                             "key": "devices[].addon.humidity",
+                            "condition": {
+                                "functionBody": "return model.devices && model.devices[arrayIndices[0]] && (!model.devices[arrayIndices[0]].addon || model.devices[arrayIndices[0]].addon.autoDiscover !== false)"
+                            }
+                        },
+                        {
+                            "key": "devices[].addon.digitalInput",
+                            "condition": {
+                                "functionBody": "return model.devices && model.devices[arrayIndices[0]] && (!model.devices[arrayIndices[0]].addon || model.devices[arrayIndices[0]].addon.autoDiscover !== false)"
+                            }
+                        },
+                        {
+                            "key": "devices[].addon.analogInput",
+                            "condition": {
+                                "functionBody": "return model.devices && model.devices[arrayIndices[0]] && (!model.devices[arrayIndices[0]].addon || model.devices[arrayIndices[0]].addon.autoDiscover !== false)"
+                            }
+                        },
+                        {
+                            "key": "devices[].addon.voltmeter",
                             "condition": {
                                 "functionBody": "return model.devices && model.devices[arrayIndices[0]] && (!model.devices[arrayIndices[0]].addon || model.devices[arrayIndices[0]].addon.autoDiscover !== false)"
                             }
