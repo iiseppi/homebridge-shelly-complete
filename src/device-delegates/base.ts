@@ -4,17 +4,29 @@ import { PlatformAccessory } from 'homebridge';
 import {
     Ability,
     AccessoryInformationAbility,
+    ContactSensorAbility,
     CoverAbility,
     GarageDoorOpenerAbility,
+    HumiditySensorAbility,
     OutletAbility,
     PowerMeterAbility,
     SwitchAbility,
+    TemperatureSensorAbility,
     LightAbility,
+    VoltmeterAbility,
 } from '../abilities/index.ts';
 import { Accessory, AccessoryId } from '../accessory.ts';
 import { DeviceLogger } from '../utils/device-logger.ts';
 import { CoverOptions, DeviceOptions, SwitchOptions, LightOptions } from '../config.ts';
 import { ShellyPlatform } from '../platform.ts';
+
+type DiscoverableComponent = ComponentLike & {
+    id: number;
+    key: string;
+    on(event: string, handler: unknown, context: unknown): unknown;
+    off(event: string, handler: unknown, context: unknown): unknown;
+    [key: string]: unknown;
+};
 
 /**
  * Describes a device delegate class.
@@ -139,6 +151,7 @@ export abstract class DeviceDelegate {
             .on('request', this.handleRequest, this);
 
         this.setup();
+        this.addAddonSensors();
     }
 
     /**
@@ -233,7 +246,7 @@ export abstract class DeviceDelegate {
         // get the config options for this cover
         const coverOpts = this.getComponentOptions<CoverOptions>(cover) ?? {};
 
-        // determine the cover tyoe
+        // determine the cover type
         const type = typeof coverOpts.type === 'string' ? coverOpts.type.toLowerCase() : 'window';
         const isDoor = type === 'door';
         const isWindowCovering = type === 'windowcovering';
@@ -267,6 +280,103 @@ export abstract class DeviceDelegate {
         return this.createAccessory(id, nameSuffix, new LightAbility(light)).setActive(
             lightOpts.exclude !== true && o.active !== false,
         );
+    }
+
+    /**
+     * Creates HomeKit accessories for supported Shelly Add-on components reported by this device.
+     */
+    protected addAddonSensors() {
+        const addonOpts = this.options.addon ?? {};
+        if (addonOpts.autoDiscover === false) {
+            return;
+        }
+
+        const components = this.getDeviceComponents();
+
+        if (addonOpts.temperature !== false) {
+            for (const component of components.filter((c) => c.key.startsWith('temperature:'))) {
+                this.createAccessory(
+                    `temperature-${component.id}`,
+                    `Temperature ${component.id + 1}`,
+                    new TemperatureSensorAbility(component),
+                );
+            }
+        }
+
+        if (addonOpts.humidity !== false) {
+            for (const component of components.filter((c) => c.key.startsWith('humidity:'))) {
+                this.createAccessory(
+                    `humidity-${component.id}`,
+                    `Humidity ${component.id + 1}`,
+                    new HumiditySensorAbility(component),
+                );
+            }
+        }
+
+        if (addonOpts.digitalInput !== false) {
+            for (const component of components.filter((c) => c.key.startsWith('input:') && this.isAddonInput(c))) {
+                this.createAccessory(
+                    `input-${component.id}`,
+                    `Input ${component.id + 1}`,
+                    new ContactSensorAbility(component),
+                );
+            }
+        }
+
+        if (addonOpts.voltmeter !== false) {
+            for (const component of components.filter((c) => c.key.startsWith('voltmeter:'))) {
+                this.createAccessory(
+                    `voltmeter-${component.id}`,
+                    `Voltmeter ${component.id + 1}`,
+                    new VoltmeterAbility(component),
+                );
+            }
+        }
+
+        if (addonOpts.analogInput !== false) {
+            for (const component of components.filter(
+                (c) => c.key.startsWith('input:') && this.isAddonAnalogInput(c),
+            )) {
+                this.log.info(
+                    'Shelly Add-on analog input detected (' +
+                        component.key +
+                        '), but HomeKit exposure is not implemented yet',
+                );
+            }
+        }
+    }
+
+    /**
+     * Returns dynamic Shelly components that can be discovered from the device instance.
+     */
+    protected getDeviceComponents(): DiscoverableComponent[] {
+        return Object.values(this.device).filter((value): value is DiscoverableComponent => {
+            if (typeof value !== 'object' || value === null) {
+                return false;
+            }
+
+            const component = value as Partial<DiscoverableComponent>;
+            return (
+                typeof component.id === 'number' &&
+                typeof component.key === 'string' &&
+                typeof component.on === 'function' &&
+                typeof component.off === 'function'
+            );
+        });
+    }
+
+    /**
+     * Returns whether the component looks like a Shelly Add-on digital input.
+     */
+    protected isAddonInput(component: DiscoverableComponent): boolean {
+        return component.id >= 100 && typeof component.state === 'boolean';
+    }
+
+    /**
+     * Returns whether the component looks like a Shelly Add-on analog input.
+     */
+    protected isAddonAnalogInput(component: DiscoverableComponent): boolean {
+        return component.id >= 100 && (typeof component.percent === 'number' || typeof component.value === 'number');
     }
 
     /**

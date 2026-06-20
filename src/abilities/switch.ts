@@ -1,5 +1,5 @@
 import { CharacteristicValue } from 'homebridge';
-import { CharacteristicValue as ShelliesCharacteristicValue, Switch } from '@lucavb/shellies-ds9';
+import { CharacteristicValue as ShelliesCharacteristicValue, ComponentLike, Switch } from '@lucavb/shellies-ds9';
 
 import { Ability, ServiceClass } from './base.ts';
 
@@ -165,5 +165,182 @@ export class GarageDoorOpenerAbility extends Ability {
         } else {
             this.log.info('Garage door opener relay(' + this.component.id + '): off');
         }
+    }
+}
+
+type AddonComponent = ComponentLike & {
+    id: number;
+    key: string;
+    on(event: string, handler: unknown, context: unknown): unknown;
+    off(event: string, handler: unknown, context: unknown): unknown;
+    [key: string]: unknown;
+};
+
+function readNumber(component: AddonComponent, ...keys: string[]): number | undefined {
+    for (const key of keys) {
+        const value = component[key];
+        if (typeof value === 'number' && Number.isFinite(value)) {
+            return value;
+        }
+    }
+
+    return undefined;
+}
+
+function readBoolean(component: AddonComponent, ...keys: string[]): boolean | undefined {
+    for (const key of keys) {
+        const value = component[key];
+        if (typeof value === 'boolean') {
+            return value;
+        }
+    }
+
+    return undefined;
+}
+
+export class TemperatureSensorAbility extends Ability {
+    constructor(readonly component: AddonComponent) {
+        super(`Temperature ${component.id + 1}`, `temperature-${component.id}`);
+    }
+
+    protected get serviceClass(): ServiceClass {
+        return this.Service.TemperatureSensor;
+    }
+
+    protected initialize() {
+        this.updateCurrentTemperature();
+        this.component.on('change:tC', this.temperatureChangeHandler, this);
+    }
+
+    detach() {
+        this.component.off('change:tC', this.temperatureChangeHandler, this);
+    }
+
+    protected temperatureChangeHandler() {
+        this.updateCurrentTemperature();
+    }
+
+    protected updateCurrentTemperature() {
+        const value = readNumber(this.component, 'tC', 'temperature', 'value');
+        if (value === undefined) {
+            return;
+        }
+
+        this.log.info('Temperature sensor(' + this.component.id + '): ' + value + ' °C');
+        this.service.getCharacteristic(this.Characteristic.CurrentTemperature).updateValue(value);
+    }
+}
+
+export class HumiditySensorAbility extends Ability {
+    constructor(readonly component: AddonComponent) {
+        super(`Humidity ${component.id + 1}`, `humidity-${component.id}`);
+    }
+
+    protected get serviceClass(): ServiceClass {
+        return this.Service.HumiditySensor;
+    }
+
+    protected initialize() {
+        this.updateCurrentRelativeHumidity();
+        this.component.on('change:rh', this.humidityChangeHandler, this);
+    }
+
+    detach() {
+        this.component.off('change:rh', this.humidityChangeHandler, this);
+    }
+
+    protected humidityChangeHandler() {
+        this.updateCurrentRelativeHumidity();
+    }
+
+    protected updateCurrentRelativeHumidity() {
+        const value = readNumber(this.component, 'rh', 'humidity', 'value');
+        if (value === undefined) {
+            return;
+        }
+
+        this.log.info('Humidity sensor(' + this.component.id + '): ' + value + ' %');
+        this.service.getCharacteristic(this.Characteristic.CurrentRelativeHumidity).updateValue(value);
+    }
+}
+
+export class ContactSensorAbility extends Ability {
+    constructor(readonly component: AddonComponent) {
+        super(`Input ${component.id + 1}`, `input-${component.id}`);
+    }
+
+    protected get serviceClass(): ServiceClass {
+        return this.Service.ContactSensor;
+    }
+
+    protected initialize() {
+        this.updateContactSensorState();
+        this.component.on('change:state', this.inputChangeHandler, this);
+    }
+
+    detach() {
+        this.component.off('change:state', this.inputChangeHandler, this);
+    }
+
+    protected inputChangeHandler() {
+        this.updateContactSensorState();
+    }
+
+    protected updateContactSensorState() {
+        const state = readBoolean(this.component, 'state', 'input');
+        if (state === undefined) {
+            return;
+        }
+
+        this.log.info('Contact sensor(' + this.component.id + '): ' + (state ? 'open' : 'closed'));
+        this.service
+            .getCharacteristic(this.Characteristic.ContactSensorState)
+            .updateValue(
+                state
+                    ? this.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
+                    : this.Characteristic.ContactSensorState.CONTACT_DETECTED,
+            );
+    }
+}
+
+export class VoltmeterAbility extends Ability {
+    constructor(readonly component: AddonComponent) {
+        super(`Voltmeter ${component.id + 1}`, `voltmeter-${component.id}`);
+    }
+
+    protected get serviceClass(): ServiceClass {
+        return this.Service.Battery;
+    }
+
+    protected initialize() {
+        this.updateVoltageLevel();
+        this.component.on('change:voltage', this.voltageChangeHandler, this);
+        this.component.on('change:xvoltage', this.voltageChangeHandler, this);
+    }
+
+    detach() {
+        this.component.off('change:voltage', this.voltageChangeHandler, this);
+        this.component.off('change:xvoltage', this.voltageChangeHandler, this);
+    }
+
+    protected voltageChangeHandler() {
+        this.updateVoltageLevel();
+    }
+
+    protected updateVoltageLevel() {
+        const voltage = readNumber(this.component, 'xvoltage', 'voltage');
+        if (voltage === undefined) {
+            return;
+        }
+
+        const level = Math.max(0, Math.min(100, Math.round((voltage / 10) * 100)));
+        this.log.info('Voltmeter(' + this.component.id + '): ' + voltage + ' V');
+        this.service.getCharacteristic(this.Characteristic.BatteryLevel).updateValue(level);
+        this.service
+            .getCharacteristic(this.Characteristic.ChargingState)
+            .updateValue(this.Characteristic.ChargingState.NOT_CHARGEABLE);
+        this.service
+            .getCharacteristic(this.Characteristic.StatusLowBattery)
+            .updateValue(this.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL);
     }
 }
