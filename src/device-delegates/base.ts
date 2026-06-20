@@ -28,6 +28,12 @@ type DiscoverableComponent = ComponentLike & {
     [key: string]: unknown;
 };
 
+type ShellyStatusComponent = Record<string, unknown> & {
+    id?: unknown;
+};
+
+type ShellyStatus = Record<string, ShellyStatusComponent | unknown>;
+
 /**
  * Describes a device delegate class.
  */
@@ -151,7 +157,7 @@ export abstract class DeviceDelegate {
             .on('request', this.handleRequest, this);
 
         this.setup();
-        this.addAddonSensors();
+        void this.addAddonSensors();
     }
 
     /**
@@ -285,13 +291,32 @@ export abstract class DeviceDelegate {
     /**
      * Creates HomeKit accessories for supported Shelly Add-on components reported by this device.
      */
-    protected addAddonSensors() {
+    protected async addAddonSensors() {
         const addonOpts = this.options.addon ?? {};
         if (addonOpts.autoDiscover === false) {
             return;
         }
 
-        const components = this.getDeviceComponents();
+        const components = [...this.getDeviceComponents(), ...(await this.getRpcAddonComponents())];
+        this.log.debug(
+            'Shelly Add-on combined autodiscovery components: ' +
+                (components.length > 0 ? components.map((component) => component.key).join(', ') : 'none'),
+        );
+
+        if (
+            this.options.addon &&
+            !components.some(
+                (component) =>
+                    component.key.startsWith('temperature:') ||
+                    component.key.startsWith('humidity:') ||
+                    component.key.startsWith('input:') ||
+                    component.key.startsWith('voltmeter:'),
+            )
+        ) {
+            this.log.info(
+                'Shelly Add-on autodiscovery is enabled, but no add-on components were exposed by the device library',
+            );
+        }
 
         if (addonOpts.temperature !== false) {
             for (const component of components.filter((c) => c.key.startsWith('temperature:'))) {
@@ -344,6 +369,61 @@ export abstract class DeviceDelegate {
                 );
             }
         }
+    }
+
+    /**
+     * Returns add-on components directly from Shelly.GetStatus.
+     * Some Shelly Add-on components are reported by RPC but are not exposed by the device library.
+     */
+    protected async getRpcAddonComponents(): Promise<DiscoverableComponent[]> {
+        if (!this.options.hostname) {
+            return [];
+        }
+
+        try {
+            const response = await fetch('http://' + this.options.hostname + '/rpc/Shelly.GetStatus');
+            if (!response.ok) {
+                this.log.warn('Failed to fetch Shelly.GetStatus for add-on autodiscovery: HTTP ' + response.status);
+                return [];
+            }
+
+            const status = (await response.json()) as ShellyStatus;
+            const components = Object.entries(status)
+                .filter(([key]) =>
+                    key.startsWith('temperature:') ||
+                    key.startsWith('humidity:') ||
+                    key.startsWith('input:') ||
+                    key.startsWith('voltmeter:'),
+                )
+                .map(([key, value]) => this.createRpcAddonComponent(key, value));
+
+            this.log.debug(
+                'Shelly Add-on RPC components: ' +
+                    (components.length > 0 ? components.map((component) => component.key).join(', ') : 'none'),
+            );
+
+            return components;
+        } catch (e) {
+            this.log.warn('Failed to fetch Shelly.GetStatus for add-on autodiscovery:', e instanceof Error ? e.message : e);
+            return [];
+        }
+    }
+
+    /**
+     * Creates a lightweight component object from a Shelly.GetStatus component entry.
+     */
+    protected createRpcAddonComponent(key: string, value: unknown): DiscoverableComponent {
+        const status = typeof value === 'object' && value !== null ? (value as ShellyStatusComponent) : {};
+        const parsedId = Number(key.split(':')[1]);
+        const id = typeof status.id === 'number' ? status.id : Number.isFinite(parsedId) ? parsedId : 0;
+
+        return {
+            ...status,
+            id,
+            key,
+            on: () => undefined,
+            off: () => undefined,
+        } as DiscoverableComponent;
     }
 
     /**
