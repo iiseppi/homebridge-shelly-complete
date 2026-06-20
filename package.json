@@ -1,7 +1,7 @@
 {
-    "name": "@lucavb/homebridge-shelly-ds9",
+    "name": "homebridge-shelly-complete",
     "version": "1.6.2",
-    "description": "Homebridge plugin for the next generation of Shelly devices",
+    "description": "Complete Homebridge plugin for Shelly Gen2/Gen3/Gen4 devices, add-ons, BLE sensors and Eve history",
     "keywords": [
         "homebridge",
         "homebridge-plugin",
@@ -20,16 +20,16 @@
         "relay",
         "automation"
     ],
-    "homepage": "https://github.com/lucavb/homebridge-shelly-ds9#readme",
+    "homepage": "https://github.com/iiseppi/homebridge-shelly-complete#readme",
     "bugs": {
-        "url": "https://github.com/lucavb/homebridge-shelly-ds9/issues"
+        "url": "https://github.com/iiseppi/homebridge-shelly-complete/issues"
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/lucavb/homebridge-shelly-ds9.git"
+        "url": "git+https://github.com/iiseppi/homebridge-shelly-complete.git"
     },
     "license": "GPL-3.0",
-    "author": "Alexander Rydén",
+    "author": "Alexander Rydén, iiseppi",
     "sideEffects": false,
     "type": "module",
     "main": "./dist/index.cjs",

@@ -20,12 +20,12 @@ type AccessoryUuid = string;
 /**
  * The name of this plugin.
  */
-export const PLUGIN_NAME = '@lucavb/homebridge-shelly-ds9';
+export const PLUGIN_NAME = 'homebridge-shelly-complete';
 
 /**
  * The name of this homebridge platform.
  */
-export const PLATFORM_NAME = 'ShellyDS9';
+export const PLATFORM_NAME = 'ShellyComplete';
 
 /**
  * Utility class that "discovers" devices from the configuration options.
@@ -172,7 +172,7 @@ export class ShellyPlatform implements DynamicPlatformPlugin {
         this.shellies = new Shellies({
             websocket: {
                 ...this.options.websocket,
-                clientId: 'homebridge-shelly-ds9-' + Math.round(Math.random() * 1000000),
+                clientId: 'homebridge-shelly-complete-' + Math.round(Math.random() * 1000000),
             },
             autoLoadStatus: true,
             autoLoadConfig: true,

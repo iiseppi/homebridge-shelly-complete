@@ -1,5 +1,5 @@
 {
-    "pluginAlias": "ShellyDS9",
+    "pluginAlias": "ShellyComplete",
     "pluginType": "platform",
     "singular": true,
     "schema": {
@@ -9,7 +9,7 @@
                 "title": "Name",
                 "type": "string",
                 "required": true,
-                "default": "Shelly NG"
+                "default": "Shelly Complete"
             },
             "mdns": {
                 "type": "object",
@@ -59,7 +59,7 @@
                     "properties": {
                         "id": {
                             "title": "Device ID",
-                            "description": "See <a href='https://github.com/alexryd/homebridge-shelly-ng/wiki/Finding-a-device-ID' target='_blank'>this page</a> for instructions on how to find your device's ID.",
+                            "description": "See <a href='https://github.com/iiseppi/homebridge-shelly-complete/wiki/Finding-a-device-ID' target='_blank'>this page</a> for instructions on how to find your device's ID.",
                             "type": "string",
                             "placeholder": "e.g. shellyplus1-abcdef123456",
                             "required": true
