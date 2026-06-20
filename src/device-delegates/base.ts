@@ -477,10 +477,12 @@ export abstract class DeviceDelegate {
                 )
                 .map(([key, value]) => this.createRpcAddonComponent(key, value, refreshAbilities));
 
-            this.log.debug(
-                'Shelly Add-on RPC components: ' +
-                    (components.length > 0 ? components.map((component) => component.key).join(', ') : 'none'),
-            );
+            if (!refreshAbilities) {
+                this.log.debug(
+                    'Shelly Add-on RPC components: ' +
+                        (components.length > 0 ? components.map((component) => component.key).join(', ') : 'none'),
+                );
+            }
 
             return components;
         } catch (e) {
