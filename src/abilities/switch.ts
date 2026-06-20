@@ -220,6 +220,10 @@ export class TemperatureSensorAbility extends Ability {
         this.updateCurrentTemperature();
     }
 
+    refresh() {
+        this.updateCurrentTemperature();
+    }
+
     protected updateCurrentTemperature() {
         const value = readNumber(this.component, 'tC', 'temperature', 'value');
         if (value === undefined) {
@@ -253,6 +257,10 @@ export class HumiditySensorAbility extends Ability {
         this.updateCurrentRelativeHumidity();
     }
 
+    refresh() {
+        this.updateCurrentRelativeHumidity();
+    }
+
     protected updateCurrentRelativeHumidity() {
         const value = readNumber(this.component, 'rh', 'humidity', 'value');
         if (value === undefined) {
@@ -283,6 +291,10 @@ export class ContactSensorAbility extends Ability {
     }
 
     protected inputChangeHandler() {
+        this.updateContactSensorState();
+    }
+
+    refresh() {
         this.updateContactSensorState();
     }
 
@@ -324,6 +336,10 @@ export class VoltmeterAbility extends Ability {
     }
 
     protected voltageChangeHandler() {
+        this.updateVoltageLevel();
+    }
+
+    refresh() {
         this.updateVoltageLevel();
     }
 

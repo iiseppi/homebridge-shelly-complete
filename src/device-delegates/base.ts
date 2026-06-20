@@ -28,6 +28,12 @@ type DiscoverableComponent = ComponentLike & {
     [key: string]: unknown;
 };
 
+type RpcAddonComponent = DiscoverableComponent;
+
+type RefreshableAddonAbility = Ability & {
+    refresh(): void;
+};
+
 type ShellyStatusComponent = Record<string, unknown> & {
     id?: unknown;
 };
@@ -133,6 +139,21 @@ export abstract class DeviceDelegate {
      * Used to keep track of whether a connection had been established when the 'disconnect' event is emitted by our RPC handler.
      */
     protected connected: boolean;
+
+    /**
+     * Lightweight RPC-backed add-on components keyed by Shelly component key.
+     */
+    protected readonly rpcAddonComponents: Map<string, RpcAddonComponent> = new Map();
+
+    /**
+     * Refreshable abilities keyed by Shelly RPC add-on component key.
+     */
+    protected readonly rpcAddonAbilities: Map<string, RefreshableAddonAbility[]> = new Map();
+
+    /**
+     * Polling timer for RPC-backed add-on components.
+     */
+    protected addonPollingInterval: ReturnType<typeof setInterval> | null = null;
 
     /**
      * @param device - The device to handle.
@@ -323,41 +344,33 @@ export abstract class DeviceDelegate {
 
         if (addonOpts.temperature !== false) {
             for (const component of components.filter((c) => c.key.startsWith('temperature:'))) {
-                this.createAccessory(
-                    `temperature-${component.id}`,
-                    `Temperature ${component.id + 1}`,
-                    new TemperatureSensorAbility(component),
-                );
+                const ability = new TemperatureSensorAbility(component);
+                this.registerRpcAddonAbility(component, ability);
+                this.createAccessory(`temperature-${component.id}`, `Temperature ${component.id + 1}`, ability);
             }
         }
 
         if (addonOpts.humidity !== false) {
             for (const component of components.filter((c) => c.key.startsWith('humidity:'))) {
-                this.createAccessory(
-                    `humidity-${component.id}`,
-                    `Humidity ${component.id + 1}`,
-                    new HumiditySensorAbility(component),
-                );
+                const ability = new HumiditySensorAbility(component);
+                this.registerRpcAddonAbility(component, ability);
+                this.createAccessory(`humidity-${component.id}`, `Humidity ${component.id + 1}`, ability);
             }
         }
 
         if (addonOpts.digitalInput !== false) {
             for (const component of components.filter((c) => c.key.startsWith('input:') && this.isAddonInput(c))) {
-                this.createAccessory(
-                    `input-${component.id}`,
-                    `Input ${component.id + 1}`,
-                    new ContactSensorAbility(component),
-                );
+                const ability = new ContactSensorAbility(component);
+                this.registerRpcAddonAbility(component, ability);
+                this.createAccessory(`input-${component.id}`, `Input ${component.id + 1}`, ability);
             }
         }
 
         if (addonOpts.voltmeter !== false) {
             for (const component of components.filter((c) => c.key.startsWith('voltmeter:'))) {
-                this.createAccessory(
-                    `voltmeter-${component.id}`,
-                    `Voltmeter ${component.id + 1}`,
-                    new VoltmeterAbility(component),
-                );
+                const ability = new VoltmeterAbility(component);
+                this.registerRpcAddonAbility(component, ability);
+                this.createAccessory(`voltmeter-${component.id}`, `Voltmeter ${component.id + 1}`, ability);
             }
         }
 
@@ -372,6 +385,8 @@ export abstract class DeviceDelegate {
                 );
             }
         }
+
+        this.startAddonPolling();
     }
 
     /**
@@ -391,10 +406,55 @@ export abstract class DeviceDelegate {
     }
 
     /**
+     * Starts polling RPC-backed add-on components.
+     */
+    protected startAddonPolling() {
+        if (this.addonPollingInterval !== null || !this.options.hostname || this.rpcAddonComponents.size === 0) {
+            return;
+        }
+
+        this.addonPollingInterval = setInterval(() => {
+            void this.pollAddonSensors();
+        }, 30 * 1000);
+    }
+
+    /**
+     * Registers an ability that can be refreshed when an RPC-backed add-on component changes.
+     */
+    protected registerRpcAddonAbility(component: DiscoverableComponent, ability: RefreshableAddonAbility) {
+        if (!this.rpcAddonComponents.has(component.key)) {
+            return;
+        }
+
+        const abilities = this.rpcAddonAbilities.get(component.key) ?? [];
+        abilities.push(ability);
+        this.rpcAddonAbilities.set(component.key, abilities);
+    }
+
+    /**
+     * Stops polling RPC-backed add-on components.
+     */
+    protected stopAddonPolling() {
+        if (this.addonPollingInterval === null) {
+            return;
+        }
+
+        clearInterval(this.addonPollingInterval);
+        this.addonPollingInterval = null;
+    }
+
+    /**
+     * Refreshes RPC-backed add-on component values.
+     */
+    protected async pollAddonSensors() {
+        await this.getRpcAddonComponents(true);
+    }
+
+    /**
      * Returns add-on components directly from Shelly.GetStatus.
      * Some Shelly Add-on components are reported by RPC but are not exposed by the device library.
      */
-    protected async getRpcAddonComponents(): Promise<DiscoverableComponent[]> {
+    protected async getRpcAddonComponents(refreshAbilities = false): Promise<DiscoverableComponent[]> {
         if (!this.options.hostname) {
             return [];
         }
@@ -415,7 +475,7 @@ export abstract class DeviceDelegate {
                         key.startsWith('input:') ||
                         key.startsWith('voltmeter:'),
                 )
-                .map(([key, value]) => this.createRpcAddonComponent(key, value));
+                .map(([key, value]) => this.createRpcAddonComponent(key, value, refreshAbilities));
 
             this.log.debug(
                 'Shelly Add-on RPC components: ' +
@@ -435,18 +495,65 @@ export abstract class DeviceDelegate {
     /**
      * Creates a lightweight component object from a Shelly.GetStatus component entry.
      */
-    protected createRpcAddonComponent(key: string, value: unknown): DiscoverableComponent {
+    protected createRpcAddonComponent(key: string, value: unknown, refreshAbilities: boolean): RpcAddonComponent {
+        const existing = this.rpcAddonComponents.get(key);
+        if (existing) {
+            const changed = this.updateRpcAddonComponent(existing, value);
+            if (refreshAbilities && changed) {
+                this.refreshRpcAddonAbilities(key);
+            }
+
+            return existing;
+        }
+
+        const component = {
+            id: this.resolveRpcAddonComponentId(key, value),
+            key,
+            on: () => component,
+            off: () => component,
+        } as unknown as RpcAddonComponent;
+
+        this.updateRpcAddonComponent(component, value);
+        this.rpcAddonComponents.set(key, component);
+        return component;
+    }
+
+    /**
+     * Resolves the numeric component ID from RPC status.
+     */
+    protected resolveRpcAddonComponentId(key: string, value: unknown): number {
         const status = typeof value === 'object' && value !== null ? (value as ShellyStatusComponent) : {};
         const parsedId = Number(key.split(':')[1]);
-        const id = typeof status.id === 'number' ? status.id : Number.isFinite(parsedId) ? parsedId : 0;
+        return typeof status.id === 'number' ? status.id : Number.isFinite(parsedId) ? parsedId : 0;
+    }
 
-        return {
-            ...status,
-            id,
-            key,
-            on: () => undefined,
-            off: () => undefined,
-        } as unknown as DiscoverableComponent;
+    /**
+     * Updates a lightweight RPC-backed component.
+     */
+    protected updateRpcAddonComponent(component: RpcAddonComponent, value: unknown): boolean {
+        const status = typeof value === 'object' && value !== null ? (value as ShellyStatusComponent) : {};
+        let changed = false;
+
+        for (const [property, newValue] of Object.entries(status)) {
+            if (component[property] !== newValue) {
+                changed = true;
+            }
+
+            component[property] = newValue;
+        }
+
+        return changed;
+    }
+
+    /**
+     * Refreshes abilities attached to an RPC-backed add-on component.
+     */
+    protected refreshRpcAddonAbilities(key: string) {
+        const abilities = this.rpcAddonAbilities.get(key) ?? [];
+
+        for (const ability of abilities) {
+            ability.refresh();
+        }
     }
 
     /**
@@ -525,6 +632,7 @@ export abstract class DeviceDelegate {
      * Removes all event listeners from this device.
      */
     detach() {
+        this.stopAddonPolling();
         this.device.rpcHandler
             .off('connect', this.handleConnect, this)
             .off('disconnect', this.handleDisconnect, this)
