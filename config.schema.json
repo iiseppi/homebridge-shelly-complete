@@ -201,6 +201,31 @@
                                 }
                             }
                         },
+                        "addon": {
+                            "title": "Shelly Add-on",
+                            "description": "Settings for sensors connected through a Shelly Add-on. Sensors are discovered automatically when the Shelly device reports them.",
+                            "type": "object",
+                            "properties": {
+                                "autoDiscover": {
+                                    "title": "Auto-discover add-on sensors",
+                                    "description": "Automatically create HomeKit services for supported Shelly Add-on sensors reported by this device.",
+                                    "type": "boolean",
+                                    "default": true
+                                },
+                                "temperature": {
+                                    "title": "Temperature sensor",
+                                    "description": "Create a HomeKit Temperature Sensor service when the Shelly Add-on reports a temperature value.",
+                                    "type": "boolean",
+                                    "default": true
+                                },
+                                "humidity": {
+                                    "title": "Humidity sensor",
+                                    "description": "Create a HomeKit Humidity Sensor service when the Shelly Add-on reports a humidity value.",
+                                    "type": "boolean",
+                                    "default": true
+                                }
+                            }
+                        },
                         "cover:0": {
                             "title": "Cover",
                             "type": "object",
@@ -264,7 +289,12 @@
                     "items": [
                         "devices[].switch:0.exclude",
                         "devices[].switch:0.type",
-                        "devices[].switch:0.pulseDuration"
+                        {
+                            "key": "devices[].switch:0.pulseDuration",
+                            "condition": {
+                                "functionBody": "return model.devices && model.devices[arrayIndices[0]] && model.devices[arrayIndices[0]]['switch:0'] && model.devices[arrayIndices[0]]['switch:0'].type === 'garageDoorOpener'"
+                            }
+                        }
                     ]
                 },
                 {
@@ -275,7 +305,12 @@
                     "items": [
                         "devices[].switch:1.exclude",
                         "devices[].switch:1.type",
-                        "devices[].switch:1.pulseDuration"
+                        {
+                            "key": "devices[].switch:1.pulseDuration",
+                            "condition": {
+                                "functionBody": "return model.devices && model.devices[arrayIndices[0]] && model.devices[arrayIndices[0]]['switch:1'] && model.devices[arrayIndices[0]]['switch:1'].type === 'garageDoorOpener'"
+                            }
+                        }
                     ]
                 },
                 {
@@ -286,7 +321,12 @@
                     "items": [
                         "devices[].switch:2.exclude",
                         "devices[].switch:2.type",
-                        "devices[].switch:2.pulseDuration"
+                        {
+                            "key": "devices[].switch:2.pulseDuration",
+                            "condition": {
+                                "functionBody": "return model.devices && model.devices[arrayIndices[0]] && model.devices[arrayIndices[0]]['switch:2'] && model.devices[arrayIndices[0]]['switch:2'].type === 'garageDoorOpener'"
+                            }
+                        }
                     ]
                 },
                 {
@@ -297,7 +337,33 @@
                     "items": [
                         "devices[].switch:3.exclude",
                         "devices[].switch:3.type",
-                        "devices[].switch:3.pulseDuration"
+                        {
+                            "key": "devices[].switch:3.pulseDuration",
+                            "condition": {
+                                "functionBody": "return model.devices && model.devices[arrayIndices[0]] && model.devices[arrayIndices[0]]['switch:3'] && model.devices[arrayIndices[0]]['switch:3'].type === 'garageDoorOpener'"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "key": "devices[].addon",
+                    "condition": {
+                        "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/^\\s*(?:shellyplus1|shellyplus1pm|shellyplus2pm|shellyplusplug|shellyplusplugus|shellyplusht|shellypro1|shellypro1pm|shellypro2|shellypro2pm|shellypro3|shellypro4pm)-/i) !== null"
+                    },
+                    "items": [
+                        "devices[].addon.autoDiscover",
+                        {
+                            "key": "devices[].addon.temperature",
+                            "condition": {
+                                "functionBody": "return model.devices && model.devices[arrayIndices[0]] && (!model.devices[arrayIndices[0]].addon || model.devices[arrayIndices[0]].addon.autoDiscover !== false)"
+                            }
+                        },
+                        {
+                            "key": "devices[].addon.humidity",
+                            "condition": {
+                                "functionBody": "return model.devices && model.devices[arrayIndices[0]] && (!model.devices[arrayIndices[0]].addon || model.devices[arrayIndices[0]].addon.autoDiscover !== false)"
+                            }
+                        }
                     ]
                 },
                 {
