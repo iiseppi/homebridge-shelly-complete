@@ -59,7 +59,11 @@ export interface SwitchOptions {
     /**
      * The type of accessory used to represent the switch.
      */
-    type?: 'outlet' | 'switch';
+    type?: 'garageDoorOpener' | 'outlet' | 'switch';
+    /**
+     * The pulse duration, in seconds, when this switch is used as a garage door opener.
+     */
+    pulseDuration?: number;
 }
 
 export interface CoverOptions {

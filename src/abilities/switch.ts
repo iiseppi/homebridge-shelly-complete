@@ -58,3 +58,112 @@ export class SwitchAbility extends Ability {
         this.service.getCharacteristic(this.Characteristic.On).updateValue(value as boolean);
     }
 }
+
+export class GarageDoorOpenerAbility extends Ability {
+    private currentStateUpdateTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    /**
+     * @param component - The switch component to control.
+     * @param pulseDuration - The pulse duration, in seconds.
+     */
+    constructor(
+        readonly component: Switch,
+        readonly pulseDuration = 0.5,
+    ) {
+        super(`Garage Door ${component.id + 1}`, `garage-door-${component.id}`);
+    }
+
+    protected get serviceClass(): ServiceClass {
+        return this.Service.GarageDoorOpener;
+    }
+
+    protected initialize() {
+        // set the initial values
+        this.service.setCharacteristic(
+            this.Characteristic.CurrentDoorState,
+            this.Characteristic.CurrentDoorState.CLOSED,
+        );
+        this.service.setCharacteristic(this.Characteristic.TargetDoorState, this.Characteristic.TargetDoorState.CLOSED);
+        this.service.setCharacteristic(this.Characteristic.ObstructionDetected, false);
+
+        // listen for commands from HomeKit
+        this.service.getCharacteristic(this.Characteristic.TargetDoorState).onSet(this.onSetHandler.bind(this));
+
+        // listen for updates from the device
+        this.component.on('change:output', this.outputChangeHandler, this);
+    }
+
+    detach() {
+        if (this.currentStateUpdateTimeout !== null) {
+            clearTimeout(this.currentStateUpdateTimeout);
+            this.currentStateUpdateTimeout = null;
+        }
+
+        this.component.off('change:output', this.outputChangeHandler, this);
+    }
+
+    /**
+     * Handles changes to the GarageDoorOpener.TargetDoorState characteristic.
+     */
+    protected async onSetHandler(value: CharacteristicValue) {
+        const targetState = value as number;
+        const isOpening = targetState === this.Characteristic.TargetDoorState.OPEN;
+
+        this.service
+            .getCharacteristic(this.Characteristic.CurrentDoorState)
+            .updateValue(
+                isOpening ? this.Characteristic.CurrentDoorState.OPENING : this.Characteristic.CurrentDoorState.CLOSING,
+            );
+
+        try {
+            await this.component.set(true);
+        } catch (e) {
+            this.log.error('Failed to trigger garage door opener:', e instanceof Error ? e.message : e);
+            throw new this.api.hap.HapStatusError(this.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
+        }
+
+        setTimeout(() => {
+            void this.resetGarageDoorOpenerRelay();
+        }, this.pulseDuration * 1000);
+
+        if (this.currentStateUpdateTimeout !== null) {
+            clearTimeout(this.currentStateUpdateTimeout);
+        }
+
+        this.currentStateUpdateTimeout = setTimeout(
+            () => {
+                this.currentStateUpdateTimeout = null;
+                this.service
+                    .getCharacteristic(this.Characteristic.CurrentDoorState)
+                    .updateValue(
+                        isOpening
+                            ? this.Characteristic.CurrentDoorState.OPEN
+                            : this.Characteristic.CurrentDoorState.CLOSED,
+                    );
+            },
+            Math.max(this.pulseDuration * 1000, 1000),
+        );
+    }
+
+    /**
+     * Resets the garage door opener relay after the configured pulse duration.
+     */
+    protected async resetGarageDoorOpenerRelay() {
+        try {
+            await this.component.set(false);
+        } catch (e) {
+            this.log.error('Failed to reset garage door opener relay:', e instanceof Error ? e.message : e);
+        }
+    }
+
+    /**
+     * Handles changes to the `output` property.
+     */
+    protected outputChangeHandler(value: ShelliesCharacteristicValue) {
+        if (value) {
+            this.log.info('Garage door opener relay(' + this.component.id + '): on');
+        } else {
+            this.log.info('Garage door opener relay(' + this.component.id + '): off');
+        }
+    }
+}

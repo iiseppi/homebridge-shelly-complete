@@ -4,6 +4,7 @@ import { Categories, PlatformAccessory } from 'homebridge';
 import {
     Ability,
     CoverAbility,
+    GarageDoorOpenerAbility,
     LightAbility,
     OutletAbility,
     ReadonlySwitchAbility,
@@ -22,6 +23,11 @@ export function resolveAccessoryCategory(abilities: Ability[]): Categories {
     for (const a of active) {
         if (a instanceof OutletAbility) {
             return Categories.OUTLET;
+        }
+    }
+    for (const a of active) {
+        if (a instanceof GarageDoorOpenerAbility) {
+            return Categories.GARAGE_DOOR_OPENER;
         }
     }
     for (const a of active) {

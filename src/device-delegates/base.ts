@@ -5,6 +5,7 @@ import {
     Ability,
     AccessoryInformationAbility,
     CoverAbility,
+    GarageDoorOpenerAbility,
     OutletAbility,
     PowerMeterAbility,
     SwitchAbility,
@@ -201,9 +202,11 @@ export abstract class DeviceDelegate {
         // get the config options for this switch
         const switchOpts = this.getComponentOptions<SwitchOptions>(swtch) ?? {};
 
-        // determine the switch tyoe
+        // determine the switch type
         const type = typeof switchOpts.type === 'string' ? switchOpts.type.toLowerCase() : 'switch';
         const isOutlet = type === 'outlet';
+        const isGarageDoorOpener = type === 'garagedooropener';
+        const pulseDuration = typeof switchOpts.pulseDuration === 'number' ? switchOpts.pulseDuration : 0.5;
 
         const id = o.single === true ? 'switch' : `switch-${swtch.id}`;
         const nameSuffix = o.single === true ? null : `Switch ${swtch.id + 1}`;
@@ -212,7 +215,8 @@ export abstract class DeviceDelegate {
             id,
             nameSuffix,
             new OutletAbility(swtch).setActive(isOutlet),
-            new SwitchAbility(swtch).setActive(!isOutlet),
+            new GarageDoorOpenerAbility(swtch, pulseDuration).setActive(isGarageDoorOpener),
+            new SwitchAbility(swtch).setActive(!isOutlet && !isGarageDoorOpener),
             // use the apower property to determine whether power metering is available
             new PowerMeterAbility(swtch).setActive(swtch.apower !== undefined),
         ).setActive(switchOpts.exclude !== true && o.active !== false);
