@@ -297,7 +297,10 @@ export abstract class DeviceDelegate {
             return;
         }
 
-        const components = [...this.getDeviceComponents(), ...(await this.getRpcAddonComponents())];
+        const components = this.dedupeComponentsByKey([
+            ...this.getDeviceComponents(),
+            ...(await this.getRpcAddonComponents()),
+        ]);
         this.log.debug(
             'Shelly Add-on combined autodiscovery components: ' +
                 (components.length > 0 ? components.map((component) => component.key).join(', ') : 'none'),
@@ -372,6 +375,22 @@ export abstract class DeviceDelegate {
     }
 
     /**
+     * Removes duplicate components reported by both the device library and RPC status.
+     */
+    protected dedupeComponentsByKey(components: DiscoverableComponent[]): DiscoverableComponent[] {
+        const seen = new Set<string>();
+
+        return components.filter((component) => {
+            if (seen.has(component.key)) {
+                return false;
+            }
+
+            seen.add(component.key);
+            return true;
+        });
+    }
+
+    /**
      * Returns add-on components directly from Shelly.GetStatus.
      * Some Shelly Add-on components are reported by RPC but are not exposed by the device library.
      */
@@ -389,11 +408,12 @@ export abstract class DeviceDelegate {
 
             const status = (await response.json()) as ShellyStatus;
             const components = Object.entries(status)
-                .filter(([key]) =>
-                    key.startsWith('temperature:') ||
-                    key.startsWith('humidity:') ||
-                    key.startsWith('input:') ||
-                    key.startsWith('voltmeter:'),
+                .filter(
+                    ([key]) =>
+                        key.startsWith('temperature:') ||
+                        key.startsWith('humidity:') ||
+                        key.startsWith('input:') ||
+                        key.startsWith('voltmeter:'),
                 )
                 .map(([key, value]) => this.createRpcAddonComponent(key, value));
 
@@ -404,7 +424,10 @@ export abstract class DeviceDelegate {
 
             return components;
         } catch (e) {
-            this.log.warn('Failed to fetch Shelly.GetStatus for add-on autodiscovery:', e instanceof Error ? e.message : e);
+            this.log.warn(
+                'Failed to fetch Shelly.GetStatus for add-on autodiscovery:',
+                e instanceof Error ? e.message : e,
+            );
             return [];
         }
     }
@@ -423,7 +446,7 @@ export abstract class DeviceDelegate {
             key,
             on: () => undefined,
             off: () => undefined,
-        } as DiscoverableComponent;
+        } as unknown as DiscoverableComponent;
     }
 
     /**
