@@ -415,7 +415,7 @@ export abstract class DeviceDelegate {
 
         this.addonPollingInterval = setInterval(() => {
             void this.pollAddonSensors();
-        }, 30 * 1000);
+        }, 2 * 1000);
     }
 
     /**
