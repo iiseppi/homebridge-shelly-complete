@@ -61,7 +61,7 @@
                             "title": "Device ID",
                             "description": "See <a href='https://github.com/iiseppi/homebridge-shelly-complete/wiki/Finding-a-device-ID' target='_blank'>this page</a> for instructions on how to find your device's ID.",
                             "type": "string",
-                            "placeholder": "e.g. shellyplus1-abcdef123456",
+                            "placeholder": "e.g. shelly1g3-abcdef123456 or shellyplus1-abcdef123456",
                             "required": true
                         },
                         "name": {
@@ -99,10 +99,18 @@
                                     "description": "The type of accessory used to represent the switch.",
                                     "type": "string",
                                     "oneOf": [
+                                        { "title": "Garage Door Opener", "enum": ["garageDoorOpener"] },
                                         { "title": "Outlet", "enum": ["outlet"] },
                                         { "title": "Switch", "enum": ["switch"] }
                                     ],
                                     "default": "switch"
+                                },
+                                "pulseDuration": {
+                                    "title": "Garage Door Opener Pulse Duration",
+                                    "description": "The pulse duration, in seconds, when this switch is used as a garage door opener.",
+                                    "type": "number",
+                                    "default": 0.5,
+                                    "minimum": 0.1
                                 }
                             }
                         },
@@ -120,10 +128,18 @@
                                     "description": "The type of accessory used to represent the switch.",
                                     "type": "string",
                                     "oneOf": [
+                                        { "title": "Garage Door Opener", "enum": ["garageDoorOpener"] },
                                         { "title": "Outlet", "enum": ["outlet"] },
                                         { "title": "Switch", "enum": ["switch"] }
                                     ],
                                     "default": "switch"
+                                },
+                                "pulseDuration": {
+                                    "title": "Garage Door Opener Pulse Duration",
+                                    "description": "The pulse duration, in seconds, when this switch is used as a garage door opener.",
+                                    "type": "number",
+                                    "default": 0.5,
+                                    "minimum": 0.1
                                 }
                             }
                         },
@@ -141,10 +157,18 @@
                                     "description": "The type of accessory used to represent the switch.",
                                     "type": "string",
                                     "oneOf": [
+                                        { "title": "Garage Door Opener", "enum": ["garageDoorOpener"] },
                                         { "title": "Outlet", "enum": ["outlet"] },
                                         { "title": "Switch", "enum": ["switch"] }
                                     ],
                                     "default": "switch"
+                                },
+                                "pulseDuration": {
+                                    "title": "Garage Door Opener Pulse Duration",
+                                    "description": "The pulse duration, in seconds, when this switch is used as a garage door opener.",
+                                    "type": "number",
+                                    "default": 0.5,
+                                    "minimum": 0.1
                                 }
                             }
                         },
@@ -162,10 +186,61 @@
                                     "description": "The type of accessory used to represent the switch.",
                                     "type": "string",
                                     "oneOf": [
+                                        { "title": "Garage Door Opener", "enum": ["garageDoorOpener"] },
                                         { "title": "Outlet", "enum": ["outlet"] },
                                         { "title": "Switch", "enum": ["switch"] }
                                     ],
                                     "default": "switch"
+                                },
+                                "pulseDuration": {
+                                    "title": "Garage Door Opener Pulse Duration",
+                                    "description": "The pulse duration, in seconds, when this switch is used as a garage door opener.",
+                                    "type": "number",
+                                    "default": 0.5,
+                                    "minimum": 0.1
+                                }
+                            }
+                        },
+                        "addon": {
+                            "title": "Shelly Add-on",
+                            "description": "Settings for sensors connected through a Shelly Add-on. Sensors are discovered automatically when the Shelly device reports them.",
+                            "type": "object",
+                            "properties": {
+                                "autoDiscover": {
+                                    "title": "Auto-discover add-on sensors",
+                                    "description": "Automatically create HomeKit services for supported Shelly Add-on sensors reported by this device.",
+                                    "type": "boolean",
+                                    "default": true
+                                },
+                                "temperature": {
+                                    "title": "Temperature sensor",
+                                    "description": "Create a HomeKit Temperature Sensor service when the Shelly Add-on reports a temperature value.",
+                                    "type": "boolean",
+                                    "default": true
+                                },
+                                "humidity": {
+                                    "title": "Humidity sensor",
+                                    "description": "Create a HomeKit Humidity Sensor service when the Shelly Add-on reports a humidity value.",
+                                    "type": "boolean",
+                                    "default": true
+                                },
+                                "digitalInput": {
+                                    "title": "Digital input",
+                                    "description": "Create a HomeKit service when the Shelly Add-on reports a digital input value.",
+                                    "type": "boolean",
+                                    "default": true
+                                },
+                                "analogInput": {
+                                    "title": "Analog input",
+                                    "description": "Create a HomeKit service when the Shelly Add-on reports an analog input value.",
+                                    "type": "boolean",
+                                    "default": true
+                                },
+                                "voltmeter": {
+                                    "title": "Voltmeter",
+                                    "description": "Create a HomeKit service when the Shelly Add-on reports a voltage value.",
+                                    "type": "boolean",
+                                    "default": true
                                 }
                             }
                         },
@@ -227,35 +302,113 @@
                 {
                     "key": "devices[].switch:0",
                     "condition": {
-                        "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/^\\s*(?:shellyplus1|shellyplus1pm|shellyplus2pm|shellyplusplug|shellyplusplugus|shellypro1|shellypro1pm|shellypro2|shellypro2pm|shellypro3|shellypro4pm)-/i) !== null"
+                        "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/^\\s*shelly[a-z0-9-]*-/i) !== null"
                     },
-                    "items": ["devices[].switch:0.exclude", "devices[].switch:0.type"]
+                    "items": [
+                        "devices[].switch:0.exclude",
+                        "devices[].switch:0.type",
+                        {
+                            "key": "devices[].switch:0.pulseDuration",
+                            "condition": {
+                                "functionBody": "return model.devices && model.devices[arrayIndices[0]] && model.devices[arrayIndices[0]]['switch:0'] && model.devices[arrayIndices[0]]['switch:0'].type === 'garageDoorOpener'"
+                            }
+                        }
+                    ]
                 },
                 {
                     "key": "devices[].switch:1",
                     "condition": {
-                        "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/^\\s*(?:shellyplus2pm|shellypro2|shellypro2pm|shellypro3|shellypro4pm)-/i) !== null"
+                        "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/^\\s*shelly[a-z0-9-]*-/i) !== null"
                     },
-                    "items": ["devices[].switch:1.exclude", "devices[].switch:1.type"]
+                    "items": [
+                        "devices[].switch:1.exclude",
+                        "devices[].switch:1.type",
+                        {
+                            "key": "devices[].switch:1.pulseDuration",
+                            "condition": {
+                                "functionBody": "return model.devices && model.devices[arrayIndices[0]] && model.devices[arrayIndices[0]]['switch:1'] && model.devices[arrayIndices[0]]['switch:1'].type === 'garageDoorOpener'"
+                            }
+                        }
+                    ]
                 },
                 {
                     "key": "devices[].switch:2",
                     "condition": {
-                        "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/^\\s*(?:shellypro3|shellypro4pm)-/i) !== null"
+                        "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/^\\s*shelly[a-z0-9-]*-/i) !== null"
                     },
-                    "items": ["devices[].switch:2.exclude", "devices[].switch:2.type"]
+                    "items": [
+                        "devices[].switch:2.exclude",
+                        "devices[].switch:2.type",
+                        {
+                            "key": "devices[].switch:2.pulseDuration",
+                            "condition": {
+                                "functionBody": "return model.devices && model.devices[arrayIndices[0]] && model.devices[arrayIndices[0]]['switch:2'] && model.devices[arrayIndices[0]]['switch:2'].type === 'garageDoorOpener'"
+                            }
+                        }
+                    ]
                 },
                 {
                     "key": "devices[].switch:3",
                     "condition": {
-                        "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/^\\s*(?:shellypro4pm)-/i) !== null"
+                        "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/^\\s*shelly[a-z0-9-]*-/i) !== null"
                     },
-                    "items": ["devices[].switch:3.exclude", "devices[].switch:3.type"]
+                    "items": [
+                        "devices[].switch:3.exclude",
+                        "devices[].switch:3.type",
+                        {
+                            "key": "devices[].switch:3.pulseDuration",
+                            "condition": {
+                                "functionBody": "return model.devices && model.devices[arrayIndices[0]] && model.devices[arrayIndices[0]]['switch:3'] && model.devices[arrayIndices[0]]['switch:3'].type === 'garageDoorOpener'"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "key": "devices[].addon",
+                    "type": "fieldset",
+                    "title": "Shelly Add-on",
+                    "expandable": true,
+                    "condition": {
+                        "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/^\\s*shelly[a-z0-9-]*-/i) !== null"
+                    },
+                    "items": [
+                        "devices[].addon.autoDiscover",
+                        {
+                            "key": "devices[].addon.temperature",
+                            "condition": {
+                                "functionBody": "return model.devices && model.devices[arrayIndices[0]] && (!model.devices[arrayIndices[0]].addon || model.devices[arrayIndices[0]].addon.autoDiscover !== false)"
+                            }
+                        },
+                        {
+                            "key": "devices[].addon.humidity",
+                            "condition": {
+                                "functionBody": "return model.devices && model.devices[arrayIndices[0]] && (!model.devices[arrayIndices[0]].addon || model.devices[arrayIndices[0]].addon.autoDiscover !== false)"
+                            }
+                        },
+                        {
+                            "key": "devices[].addon.digitalInput",
+                            "condition": {
+                                "functionBody": "return model.devices && model.devices[arrayIndices[0]] && (!model.devices[arrayIndices[0]].addon || model.devices[arrayIndices[0]].addon.autoDiscover !== false)"
+                            }
+                        },
+                        {
+                            "key": "devices[].addon.analogInput",
+                            "condition": {
+                                "functionBody": "return model.devices && model.devices[arrayIndices[0]] && (!model.devices[arrayIndices[0]].addon || model.devices[arrayIndices[0]].addon.autoDiscover !== false)"
+                            }
+                        },
+                        {
+                            "key": "devices[].addon.voltmeter",
+                            "condition": {
+                                "functionBody": "return model.devices && model.devices[arrayIndices[0]] && (!model.devices[arrayIndices[0]].addon || model.devices[arrayIndices[0]].addon.autoDiscover !== false)"
+                            }
+                        }
+                    ]
                 },
                 {
                     "key": "devices[].cover:0",
                     "condition": {
-                        "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/\\s*(?:shellyplus2pm|shellypro2pm)-/i) !== null"
+                        "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/^\\s*shelly[a-z0-9-]*-/i) !== null"
                     },
                     "items": ["devices[].cover:0.exclude", "devices[].cover:0.type"]
                 }
