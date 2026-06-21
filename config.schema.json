@@ -244,6 +244,81 @@
                                 }
                             }
                         },
+                        "bluetooth": {
+                            "title": "Shelly Bluetooth Gateway",
+                            "description": "Settings for Bluetooth/BTHome sensors exposed through this Shelly device as a gateway. Configure Bluetooth devices in the Shelly device itself; this plugin only reads the reported BTHome components.",
+                            "type": "object",
+                            "properties": {
+                                "autoDiscover": {
+                                    "title": "Auto-discover Bluetooth/BTHome sensors",
+                                    "description": "Automatically create HomeKit services for supported Bluetooth/BTHome sensors reported by this Shelly gateway device.",
+                                    "type": "boolean",
+                                    "default": true
+                                },
+                                "temperature": {
+                                    "title": "Temperature sensor",
+                                    "description": "Create a HomeKit Temperature Sensor service when a Bluetooth/BTHome sensor reports a temperature value.",
+                                    "type": "boolean",
+                                    "default": true
+                                },
+                                "humidity": {
+                                    "title": "Humidity sensor",
+                                    "description": "Create a HomeKit Humidity Sensor service when a Bluetooth/BTHome sensor reports a humidity value.",
+                                    "type": "boolean",
+                                    "default": true
+                                },
+                                "contact": {
+                                    "title": "Contact sensor",
+                                    "description": "Create a HomeKit Contact Sensor service when a Bluetooth/BTHome sensor reports a contact value.",
+                                    "type": "boolean",
+                                    "default": true
+                                },
+                                "battery": {
+                                    "title": "Battery level",
+                                    "description": "Create a HomeKit Battery service when a Bluetooth/BTHome device reports a battery level.",
+                                    "type": "boolean",
+                                    "default": true
+                                },
+                                "pollInterval": {
+                                    "title": "Polling interval",
+                                    "description": "The interval, in seconds, at which Bluetooth/BTHome sensor values should be refreshed from the Shelly gateway device.",
+                                    "type": "integer",
+                                    "default": 10,
+                                    "minimum": 5
+                                }
+                            }
+                        },
+                        "eve": {
+                            "title": "Eve History",
+                            "description": "Settings for Eve/Fakegato history. History is added to supported HomeKit services regardless of whether the values come from a Shelly Add-on or Bluetooth/BTHome sensors.",
+                            "type": "object",
+                            "properties": {
+                                "history": {
+                                    "title": "Enable Eve/Fakegato history",
+                                    "description": "Expose supported accessory values to Eve history.",
+                                    "type": "boolean",
+                                    "default": false
+                                },
+                                "temperature": {
+                                    "title": "Temperature history",
+                                    "description": "Record temperature values in Eve history.",
+                                    "type": "boolean",
+                                    "default": true
+                                },
+                                "humidity": {
+                                    "title": "Humidity history",
+                                    "description": "Record humidity values in Eve history.",
+                                    "type": "boolean",
+                                    "default": true
+                                },
+                                "contact": {
+                                    "title": "Contact history",
+                                    "description": "Record contact sensor values in Eve history.",
+                                    "type": "boolean",
+                                    "default": true
+                                }
+                            }
+                        },
                         "cover:0": {
                             "title": "Cover",
                             "type": "object",
@@ -401,6 +476,78 @@
                             "key": "devices[].addon.voltmeter",
                             "condition": {
                                 "functionBody": "return model.devices && model.devices[arrayIndices[0]] && (!model.devices[arrayIndices[0]].addon || model.devices[arrayIndices[0]].addon.autoDiscover !== false)"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "key": "devices[].bluetooth",
+                    "type": "fieldset",
+                    "title": "Shelly Bluetooth Gateway",
+                    "expandable": true,
+                    "condition": {
+                        "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/^\\s*shelly[a-z0-9-]*-/i) !== null"
+                    },
+                    "items": [
+                        "devices[].bluetooth.autoDiscover",
+                        {
+                            "key": "devices[].bluetooth.temperature",
+                            "condition": {
+                                "functionBody": "return model.devices && model.devices[arrayIndices[0]] && (!model.devices[arrayIndices[0]].bluetooth || model.devices[arrayIndices[0]].bluetooth.autoDiscover !== false)"
+                            }
+                        },
+                        {
+                            "key": "devices[].bluetooth.humidity",
+                            "condition": {
+                                "functionBody": "return model.devices && model.devices[arrayIndices[0]] && (!model.devices[arrayIndices[0]].bluetooth || model.devices[arrayIndices[0]].bluetooth.autoDiscover !== false)"
+                            }
+                        },
+                        {
+                            "key": "devices[].bluetooth.contact",
+                            "condition": {
+                                "functionBody": "return model.devices && model.devices[arrayIndices[0]] && (!model.devices[arrayIndices[0]].bluetooth || model.devices[arrayIndices[0]].bluetooth.autoDiscover !== false)"
+                            }
+                        },
+                        {
+                            "key": "devices[].bluetooth.battery",
+                            "condition": {
+                                "functionBody": "return model.devices && model.devices[arrayIndices[0]] && (!model.devices[arrayIndices[0]].bluetooth || model.devices[arrayIndices[0]].bluetooth.autoDiscover !== false)"
+                            }
+                        },
+                        {
+                            "key": "devices[].bluetooth.pollInterval",
+                            "condition": {
+                                "functionBody": "return model.devices && model.devices[arrayIndices[0]] && (!model.devices[arrayIndices[0]].bluetooth || model.devices[arrayIndices[0]].bluetooth.autoDiscover !== false)"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "key": "devices[].eve",
+                    "type": "fieldset",
+                    "title": "Eve History",
+                    "expandable": true,
+                    "condition": {
+                        "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/^\\s*shelly[a-z0-9-]*-/i) !== null"
+                    },
+                    "items": [
+                        "devices[].eve.history",
+                        {
+                            "key": "devices[].eve.temperature",
+                            "condition": {
+                                "functionBody": "return model.devices && model.devices[arrayIndices[0]] && model.devices[arrayIndices[0]].eve && model.devices[arrayIndices[0]].eve.history === true"
+                            }
+                        },
+                        {
+                            "key": "devices[].eve.humidity",
+                            "condition": {
+                                "functionBody": "return model.devices && model.devices[arrayIndices[0]] && model.devices[arrayIndices[0]].eve && model.devices[arrayIndices[0]].eve.history === true"
+                            }
+                        },
+                        {
+                            "key": "devices[].eve.contact",
+                            "condition": {
+                                "functionBody": "return model.devices && model.devices[arrayIndices[0]] && model.devices[arrayIndices[0]].eve && model.devices[arrayIndices[0]].eve.history === true"
                             }
                         }
                     ]
