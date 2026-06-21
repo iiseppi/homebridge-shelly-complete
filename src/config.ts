@@ -111,6 +111,52 @@ export interface AddonOptions {
     voltmeter?: boolean;
 }
 
+export interface BluetoothOptions {
+    /**
+     * Whether Bluetooth/BTHome sensors reported by the Shelly device should be discovered automatically.
+     */
+    autoDiscover?: boolean;
+    /**
+     * Whether temperature sensors reported by Bluetooth/BTHome devices should be exposed to HomeKit.
+     */
+    temperature?: boolean;
+    /**
+     * Whether humidity sensors reported by Bluetooth/BTHome devices should be exposed to HomeKit.
+     */
+    humidity?: boolean;
+    /**
+     * Whether contact sensors reported by Bluetooth/BTHome devices should be exposed to HomeKit.
+     */
+    contact?: boolean;
+    /**
+     * Whether battery levels reported by Bluetooth/BTHome devices should be exposed to HomeKit.
+     */
+    battery?: boolean;
+    /**
+     * The interval, in seconds, at which Bluetooth/BTHome sensors should be polled.
+     */
+    pollInterval?: number;
+}
+
+export interface EveOptions {
+    /**
+     * Whether Eve/Fakegato history should be enabled for supported accessories.
+     */
+    history?: boolean;
+    /**
+     * Whether temperature history should be exposed to Eve.
+     */
+    temperature?: boolean;
+    /**
+     * Whether humidity history should be exposed to Eve.
+     */
+    humidity?: boolean;
+    /**
+     * Whether contact sensor history should be exposed to Eve.
+     */
+    contact?: boolean;
+}
+
 export interface DeviceOptions {
     /**
      * The name of the device.
@@ -152,6 +198,14 @@ export interface DeviceOptions {
      * Options for sensors connected through a Shelly Add-on.
      */
     addon?: AddonOptions;
+    /**
+     * Options for Bluetooth/BTHome sensors exposed through this Shelly device as a gateway.
+     */
+    bluetooth?: BluetoothOptions;
+    /**
+     * Options for Eve/Fakegato history exposed for this Shelly device.
+     */
+    eve?: EveOptions;
     /**
      * Options for devices that have a cover.
      */

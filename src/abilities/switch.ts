@@ -168,7 +168,7 @@ export class GarageDoorOpenerAbility extends Ability {
     }
 }
 
-type AddonComponent = ComponentLike & {
+type SensorComponent = ComponentLike & {
     id: number;
     key: string;
     on(event: string, handler: unknown, context: unknown): unknown;
@@ -176,7 +176,7 @@ type AddonComponent = ComponentLike & {
     [key: string]: unknown;
 };
 
-function readNumber(component: AddonComponent, ...keys: string[]): number | undefined {
+function readNumber(component: SensorComponent, ...keys: string[]): number | undefined {
     for (const key of keys) {
         const value = component[key];
         if (typeof value === 'number' && Number.isFinite(value)) {
@@ -187,7 +187,7 @@ function readNumber(component: AddonComponent, ...keys: string[]): number | unde
     return undefined;
 }
 
-function readBoolean(component: AddonComponent, ...keys: string[]): boolean | undefined {
+function readBoolean(component: SensorComponent, ...keys: string[]): boolean | undefined {
     for (const key of keys) {
         const value = component[key];
         if (typeof value === 'boolean') {
@@ -199,7 +199,7 @@ function readBoolean(component: AddonComponent, ...keys: string[]): boolean | un
 }
 
 export class TemperatureSensorAbility extends Ability {
-    constructor(readonly component: AddonComponent) {
+    constructor(readonly component: SensorComponent) {
         super(`Temperature ${component.id + 1}`, `temperature-${component.id}`);
     }
 
@@ -236,7 +236,7 @@ export class TemperatureSensorAbility extends Ability {
 }
 
 export class HumiditySensorAbility extends Ability {
-    constructor(readonly component: AddonComponent) {
+    constructor(readonly component: SensorComponent) {
         super(`Humidity ${component.id + 1}`, `humidity-${component.id}`);
     }
 
@@ -273,7 +273,7 @@ export class HumiditySensorAbility extends Ability {
 }
 
 export class ContactSensorAbility extends Ability {
-    constructor(readonly component: AddonComponent) {
+    constructor(readonly component: SensorComponent) {
         super(`Input ${component.id + 1}`, `input-${component.id}`);
     }
 
@@ -316,7 +316,7 @@ export class ContactSensorAbility extends Ability {
 }
 
 export class VoltmeterAbility extends Ability {
-    constructor(readonly component: AddonComponent) {
+    constructor(readonly component: SensorComponent) {
         super(`Voltmeter ${component.id + 1}`, `voltmeter-${component.id}`);
     }
 
@@ -358,5 +358,55 @@ export class VoltmeterAbility extends Ability {
         this.service
             .getCharacteristic(this.Characteristic.StatusLowBattery)
             .updateValue(this.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL);
+    }
+}
+
+export class BatteryAbility extends Ability {
+    constructor(readonly component: SensorComponent) {
+        super(`Battery ${component.id + 1}`, `battery-${component.id}`);
+    }
+
+    protected get serviceClass(): ServiceClass {
+        return this.Service.Battery;
+    }
+
+    protected initialize() {
+        this.updateBatteryLevel();
+        this.component.on('change:battery', this.batteryChangeHandler, this);
+        this.component.on('change:value', this.batteryChangeHandler, this);
+    }
+
+    detach() {
+        this.component.off('change:battery', this.batteryChangeHandler, this);
+        this.component.off('change:value', this.batteryChangeHandler, this);
+    }
+
+    protected batteryChangeHandler() {
+        this.updateBatteryLevel();
+    }
+
+    refresh() {
+        this.updateBatteryLevel();
+    }
+
+    protected updateBatteryLevel() {
+        const battery = readNumber(this.component, 'battery', 'value');
+        if (battery === undefined) {
+            return;
+        }
+
+        const level = Math.max(0, Math.min(100, Math.round(battery)));
+        this.log.info('Battery(' + this.component.id + '): ' + level + ' %');
+        this.service.getCharacteristic(this.Characteristic.BatteryLevel).updateValue(level);
+        this.service
+            .getCharacteristic(this.Characteristic.ChargingState)
+            .updateValue(this.Characteristic.ChargingState.NOT_CHARGEABLE);
+        this.service
+            .getCharacteristic(this.Characteristic.StatusLowBattery)
+            .updateValue(
+                level <= 20
+                    ? this.Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW
+                    : this.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL,
+            );
     }
 }
