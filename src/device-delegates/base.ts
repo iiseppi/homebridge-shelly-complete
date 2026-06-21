@@ -343,6 +343,10 @@ export abstract class DeviceDelegate {
      */
     protected async addAddonSensors() {
         const addonOpts = this.options.addon ?? {};
+        const eveOpts = this.options.eve ?? {};
+        const enableEveTemperatureHistory = eveOpts.history === true && eveOpts.temperature !== false;
+        const enableEveHumidityHistory = eveOpts.history === true && eveOpts.humidity !== false;
+        const enableEveContactHistory = eveOpts.history === true && eveOpts.contact !== false;
         if (addonOpts.autoDiscover === false) {
             return;
         }
@@ -373,7 +377,7 @@ export abstract class DeviceDelegate {
 
         if (addonOpts.temperature !== false) {
             for (const component of components.filter((c) => c.key.startsWith('temperature:'))) {
-                const ability = new TemperatureSensorAbility(component);
+                const ability = new TemperatureSensorAbility(component, enableEveTemperatureHistory);
                 this.registerRpcAddonAbility(component, ability);
                 this.createAccessory(`temperature-${component.id}`, `Temperature ${component.id + 1}`, ability);
             }
@@ -381,7 +385,7 @@ export abstract class DeviceDelegate {
 
         if (addonOpts.humidity !== false) {
             for (const component of components.filter((c) => c.key.startsWith('humidity:'))) {
-                const ability = new HumiditySensorAbility(component);
+                const ability = new HumiditySensorAbility(component, enableEveHumidityHistory);
                 this.registerRpcAddonAbility(component, ability);
                 this.createAccessory(`humidity-${component.id}`, `Humidity ${component.id + 1}`, ability);
             }
@@ -389,7 +393,7 @@ export abstract class DeviceDelegate {
 
         if (addonOpts.digitalInput !== false) {
             for (const component of components.filter((c) => c.key.startsWith('input:') && this.isAddonInput(c))) {
-                const ability = new ContactSensorAbility(component);
+                const ability = new ContactSensorAbility(component, enableEveContactHistory);
                 this.registerRpcAddonAbility(component, ability);
                 this.createAccessory(`input-${component.id}`, `Input ${component.id + 1}`, ability);
             }
@@ -423,6 +427,10 @@ export abstract class DeviceDelegate {
      */
     protected async addBluetoothSensors() {
         const bluetoothOpts = this.options.bluetooth ?? {};
+        const eveOpts = this.options.eve ?? {};
+        const enableEveTemperatureHistory = eveOpts.history === true && eveOpts.temperature !== false;
+        const enableEveHumidityHistory = eveOpts.history === true && eveOpts.humidity !== false;
+        const enableEveContactHistory = eveOpts.history === true && eveOpts.contact !== false;
         if (bluetoothOpts.autoDiscover === false) {
             return;
         }
@@ -441,7 +449,7 @@ export abstract class DeviceDelegate {
 
         if (bluetoothOpts.temperature !== false) {
             for (const component of components.filter((c) => this.isBluetoothTemperatureSensor(c))) {
-                const ability = new TemperatureSensorAbility(component);
+                const ability = new TemperatureSensorAbility(component, enableEveTemperatureHistory);
                 this.registerRpcBluetoothAbility(component, ability);
                 this.createAccessory(
                     `bluetooth-temperature-${component.id}`,
@@ -453,7 +461,7 @@ export abstract class DeviceDelegate {
 
         if (bluetoothOpts.humidity !== false) {
             for (const component of components.filter((c) => this.isBluetoothHumiditySensor(c))) {
-                const ability = new HumiditySensorAbility(component);
+                const ability = new HumiditySensorAbility(component, enableEveHumidityHistory);
                 this.registerRpcBluetoothAbility(component, ability);
                 this.createAccessory(
                     `bluetooth-humidity-${component.id}`,
@@ -493,7 +501,7 @@ export abstract class DeviceDelegate {
 
         if (bluetoothOpts.contact !== false) {
             for (const component of components.filter((c) => this.isBluetoothContactSensor(c))) {
-                const ability = new ContactSensorAbility(component);
+                const ability = new ContactSensorAbility(component, enableEveContactHistory);
                 this.registerRpcBluetoothAbility(component, ability);
                 this.createAccessory(
                     `bluetooth-contact-${component.id}`,

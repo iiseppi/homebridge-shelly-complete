@@ -55,7 +55,8 @@
         "test:watch": "vitest"
     },
     "dependencies": {
-        "@lucavb/shellies-ds9": "1.6.0"
+        "@lucavb/shellies-ds9": "1.6.0",
+        "fakegato-history": "^0.6.1"
     },
     "devDependencies": {
         "@commitlint/cli": "21.0.2",

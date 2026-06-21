@@ -2,6 +2,7 @@ import { CharacteristicValue } from 'homebridge';
 import { CharacteristicValue as ShelliesCharacteristicValue, ComponentLike, Switch } from '@lucavb/shellies-ds9';
 
 import { Ability, ServiceClass } from './base.ts';
+import { createEveDoorHistory, createEveRoomHistory, EveHistory } from '../utils/eve-history.ts';
 
 export class SwitchAbility extends Ability {
     /**
@@ -199,7 +200,14 @@ function readBoolean(component: SensorComponent, ...keys: string[]): boolean | u
 }
 
 export class TemperatureSensorAbility extends Ability {
-    constructor(readonly component: SensorComponent) {
+    private eveHistory: EveHistory | null = null;
+    private eveHistoryInterval: ReturnType<typeof setInterval> | null = null;
+    private lastTemperature: number | null = null;
+
+    constructor(
+        readonly component: SensorComponent,
+        private readonly enableEveHistory = false,
+    ) {
         super(`Temperature ${component.id + 1}`, `temperature-${component.id}`);
     }
 
@@ -208,35 +216,68 @@ export class TemperatureSensorAbility extends Ability {
     }
 
     protected initialize() {
-        this.updateCurrentTemperature();
+        if (this.enableEveHistory) {
+            this.eveHistory = createEveRoomHistory(this.platform, this.platformAccessory, this.log);
+            this.eveHistoryInterval = setInterval(() => this.recordEveHistory(), 10 * 60 * 1000);
+        }
+
+        this.updateCurrentTemperature(true);
         this.component.on('change:tC', this.temperatureChangeHandler, this);
     }
 
     detach() {
+        if (this.eveHistoryInterval !== null) {
+            clearInterval(this.eveHistoryInterval);
+            this.eveHistoryInterval = null;
+        }
+
         this.component.off('change:tC', this.temperatureChangeHandler, this);
     }
 
     protected temperatureChangeHandler() {
-        this.updateCurrentTemperature();
+        this.updateCurrentTemperature(true);
     }
 
     refresh() {
-        this.updateCurrentTemperature();
+        this.updateCurrentTemperature(true);
     }
 
-    protected updateCurrentTemperature() {
+    protected updateCurrentTemperature(recordHistoryOnChange = false) {
         const value = readNumber(this.component, 'tC', 'temperature', 'value');
         if (value === undefined) {
             return;
         }
 
+        const changedSinceLastSeen = this.lastTemperature !== value;
+
         this.log.info('Temperature sensor(' + this.component.id + '): ' + value + ' °C');
+        this.lastTemperature = value;
+
+        if (recordHistoryOnChange && changedSinceLastSeen) {
+            this.recordEveHistory();
+        }
+
         this.service.getCharacteristic(this.Characteristic.CurrentTemperature).updateValue(value);
+    }
+
+    protected recordEveHistory() {
+        if (this.eveHistory === null || this.lastTemperature === null) {
+            return;
+        }
+
+        this.eveHistory.addTemperature(this.lastTemperature);
     }
 }
 
 export class HumiditySensorAbility extends Ability {
-    constructor(readonly component: SensorComponent) {
+    private eveHistory: EveHistory | null = null;
+    private eveHistoryInterval: ReturnType<typeof setInterval> | null = null;
+    private lastHumidity: number | null = null;
+
+    constructor(
+        readonly component: SensorComponent,
+        private readonly enableEveHistory = false,
+    ) {
         super(`Humidity ${component.id + 1}`, `humidity-${component.id}`);
     }
 
@@ -245,35 +286,66 @@ export class HumiditySensorAbility extends Ability {
     }
 
     protected initialize() {
-        this.updateCurrentRelativeHumidity();
+        if (this.enableEveHistory) {
+            this.eveHistory = createEveRoomHistory(this.platform, this.platformAccessory, this.log);
+            this.eveHistoryInterval = setInterval(() => this.recordEveHistory(), 10 * 60 * 1000);
+        }
+
+        this.updateCurrentRelativeHumidity(true);
         this.component.on('change:rh', this.humidityChangeHandler, this);
     }
 
     detach() {
+        if (this.eveHistoryInterval !== null) {
+            clearInterval(this.eveHistoryInterval);
+            this.eveHistoryInterval = null;
+        }
+
         this.component.off('change:rh', this.humidityChangeHandler, this);
     }
 
     protected humidityChangeHandler() {
-        this.updateCurrentRelativeHumidity();
+        this.updateCurrentRelativeHumidity(true);
     }
 
     refresh() {
-        this.updateCurrentRelativeHumidity();
+        this.updateCurrentRelativeHumidity(true);
     }
 
-    protected updateCurrentRelativeHumidity() {
+    protected updateCurrentRelativeHumidity(recordHistoryOnChange = false) {
         const value = readNumber(this.component, 'rh', 'humidity', 'value');
         if (value === undefined) {
             return;
         }
 
+        const changedSinceLastSeen = this.lastHumidity !== value;
+
         this.log.info('Humidity sensor(' + this.component.id + '): ' + value + ' %');
+        this.lastHumidity = value;
+
+        if (recordHistoryOnChange && changedSinceLastSeen) {
+            this.recordEveHistory();
+        }
+
         this.service.getCharacteristic(this.Characteristic.CurrentRelativeHumidity).updateValue(value);
+    }
+
+    protected recordEveHistory() {
+        if (this.eveHistory === null || this.lastHumidity === null) {
+            return;
+        }
+
+        this.eveHistory.addHumidity(this.lastHumidity);
     }
 }
 
 export class ContactSensorAbility extends Ability {
-    constructor(readonly component: SensorComponent) {
+    private eveHistory: EveHistory | null = null;
+
+    constructor(
+        readonly component: SensorComponent,
+        private readonly enableEveHistory = false,
+    ) {
         super(`Input ${component.id + 1}`, `input-${component.id}`);
     }
 
@@ -282,6 +354,10 @@ export class ContactSensorAbility extends Ability {
     }
 
     protected initialize() {
+        if (this.enableEveHistory) {
+            this.eveHistory = createEveDoorHistory(this.platform, this.platformAccessory, this.log);
+        }
+
         this.updateContactSensorState();
         this.component.on('change:state', this.inputChangeHandler, this);
     }
@@ -305,6 +381,7 @@ export class ContactSensorAbility extends Ability {
         }
 
         this.log.info('Contact sensor(' + this.component.id + '): ' + (state ? 'open' : 'closed'));
+        this.recordEveHistory(state);
         this.service
             .getCharacteristic(this.Characteristic.ContactSensorState)
             .updateValue(
@@ -312,6 +389,14 @@ export class ContactSensorAbility extends Ability {
                     ? this.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
                     : this.Characteristic.ContactSensorState.CONTACT_DETECTED,
             );
+    }
+
+    protected recordEveHistory(open: boolean) {
+        if (this.eveHistory === null) {
+            return;
+        }
+
+        this.eveHistory.addContact(open);
     }
 }
 

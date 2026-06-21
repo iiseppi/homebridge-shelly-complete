@@ -13,6 +13,7 @@ export type ServiceClass = WithUUID<typeof Service>;
  */
 export abstract class Ability {
     private _platformAccessory: PlatformAccessory | null = null;
+    private readonly cleanupCallbacks: (() => void)[] = [];
 
     /**
      * The associated platform accessory.
@@ -93,6 +94,31 @@ export abstract class Ability {
             throw new Error('Ability has not yet been setup');
         }
         return this._service;
+    }
+
+    /**
+     * Registers a cleanup callback that should run when this ability is detached or destroyed.
+     */
+    protected registerCleanup(callback: () => void) {
+        this.cleanupCallbacks.push(callback);
+    }
+
+    /**
+     * Runs and clears all registered cleanup callbacks.
+     */
+    protected runCleanupCallbacks() {
+        while (this.cleanupCallbacks.length > 0) {
+            const callback = this.cleanupCallbacks.pop();
+            if (!callback) {
+                continue;
+            }
+
+            try {
+                callback();
+            } catch (e) {
+                this._log?.warn('Failed to clean up ability resource:', e instanceof Error ? e.message : e);
+            }
+        }
     }
 
     private _active = true;
@@ -178,6 +204,7 @@ export abstract class Ability {
             // we're inactive, detach from and remove our service
             if (this._service !== null) {
                 this.detach();
+                this.runCleanupCallbacks();
             }
 
             this.removeService();
@@ -262,6 +289,7 @@ export abstract class Ability {
      */
     destroy() {
         this.detach();
+        this.runCleanupCallbacks();
 
         this._platformAccessory = null;
         this._platform = null;

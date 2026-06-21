@@ -1,3 +1,5 @@
+import { createRequire } from 'node:module';
+
 import { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig } from 'homebridge';
 
 import {
@@ -14,6 +16,24 @@ import { CustomServices, createServices } from './utils/services.ts';
 import { DeviceCache } from './utils/device-cache.ts';
 import { DeviceDelegate } from './device-delegates/index.ts';
 import { PlatformOptions } from './config.ts';
+
+const require = createRequire(import.meta.url);
+
+type FakeGatoHistoryType = 'room' | 'weather' | 'door';
+
+type FakeGatoHistoryEntry = Record<string, number>;
+
+export type FakeGatoHistoryService = {
+    addEntry(entry: FakeGatoHistoryEntry): void;
+};
+
+export type FakeGatoHistoryServiceConstructor = new (
+    type: FakeGatoHistoryType,
+    accessory: PlatformAccessory,
+    options?: Record<string, unknown>,
+) => FakeGatoHistoryService;
+
+type FakeGatoHistoryModule = (api: API) => FakeGatoHistoryServiceConstructor;
 
 type AccessoryUuid = string;
 
@@ -131,6 +151,16 @@ export class ShellyPlatform implements DynamicPlatformPlugin {
     readonly customServices: CustomServices;
 
     /**
+     * A reference to the fakegato-history service constructor for Eve history.
+     */
+    readonly FakeGatoHistoryService: FakeGatoHistoryServiceConstructor;
+
+    /**
+     * The Homebridge storage path used for local Eve/Fakegato history files.
+     */
+    readonly storagePath: string;
+
+    /**
      * A reference to the shellies-ds9 library.
      */
     protected readonly shellies: Shellies;
@@ -168,6 +198,9 @@ export class ShellyPlatform implements DynamicPlatformPlugin {
         this.customCharacteristics = Object.freeze(createCharacteristics(api));
         this.customServices = Object.freeze(createServices(api, this.customCharacteristics));
 
+        const fakegato = require('fakegato-history') as FakeGatoHistoryModule;
+        this.FakeGatoHistoryService = fakegato(api);
+
         // setup shellies-ds9
         this.shellies = new Shellies({
             websocket: {
@@ -186,9 +219,9 @@ export class ShellyPlatform implements DynamicPlatformPlugin {
             .on('error', this.handleError, this);
 
         const localStorage = api.hap.HAPStorage.storage();
-        const storagePath =
+        this.storagePath =
             typeof localStorage.options?.dir === 'string' ? localStorage.options.dir : api.user.storagePath() || '.';
-        this.deviceCache = new DeviceCache(storagePath, log);
+        this.deviceCache = new DeviceCache(this.storagePath, log);
 
         // wait for homebridge to finish launching
         api.on('didFinishLaunching', this.initialize.bind(this));
