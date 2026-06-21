@@ -31,6 +31,22 @@ type DiscoverableComponent = ComponentLike & {
 type RpcAddonComponent = DiscoverableComponent;
 
 type RpcBluetoothComponent = DiscoverableComponent;
+
+type AddonEnvironmentGroup = {
+    id: number;
+    temperature: DiscoverableComponent;
+    humidity: DiscoverableComponent;
+};
+
+type BluetoothEnvironmentGroup = {
+    id: number;
+    address: string;
+    device?: DiscoverableComponent;
+    temperature: DiscoverableComponent;
+    humidity: DiscoverableComponent;
+    battery?: DiscoverableComponent;
+};
+
 type RefreshableAddonAbility = Ability & {
     refresh(): void;
 };
@@ -375,8 +391,31 @@ export abstract class DeviceDelegate {
             );
         }
 
+        const addonEnvironmentGroups = this.getAddonEnvironmentGroups(components);
+        const handledAddonComponentKeys = new Set<string>();
+
+        for (const group of addonEnvironmentGroups) {
+            const temperatureAbility = new TemperatureSensorAbility(group.temperature, enableEveTemperatureHistory);
+            const humidityAbility = new HumiditySensorAbility(group.humidity, enableEveHumidityHistory);
+
+            this.registerRpcAddonAbility(group.temperature, temperatureAbility);
+            this.registerRpcAddonAbility(group.humidity, humidityAbility);
+
+            handledAddonComponentKeys.add(group.temperature.key);
+            handledAddonComponentKeys.add(group.humidity.key);
+
+            this.createAccessory(
+                `environment-${group.id}`,
+                `Environment ${group.id + 1}`,
+                temperatureAbility,
+                humidityAbility,
+            );
+        }
+
         if (addonOpts.temperature !== false) {
-            for (const component of components.filter((c) => c.key.startsWith('temperature:'))) {
+            for (const component of components.filter(
+                (c) => c.key.startsWith('temperature:') && !handledAddonComponentKeys.has(c.key),
+            )) {
                 const ability = new TemperatureSensorAbility(component, enableEveTemperatureHistory);
                 this.registerRpcAddonAbility(component, ability);
                 this.createAccessory(`temperature-${component.id}`, `Temperature ${component.id + 1}`, ability);
@@ -384,7 +423,9 @@ export abstract class DeviceDelegate {
         }
 
         if (addonOpts.humidity !== false) {
-            for (const component of components.filter((c) => c.key.startsWith('humidity:'))) {
+            for (const component of components.filter(
+                (c) => c.key.startsWith('humidity:') && !handledAddonComponentKeys.has(c.key),
+            )) {
                 const ability = new HumiditySensorAbility(component, enableEveHumidityHistory);
                 this.registerRpcAddonAbility(component, ability);
                 this.createAccessory(`humidity-${component.id}`, `Humidity ${component.id + 1}`, ability);
@@ -447,8 +488,51 @@ export abstract class DeviceDelegate {
             );
         }
 
+        const bluetoothEnvironmentGroups = this.getBluetoothEnvironmentGroups(components);
+        const handledBluetoothComponentKeys = new Set<string>();
+
+        for (const group of bluetoothEnvironmentGroups) {
+            const abilities: RefreshableBluetoothAbility[] = [];
+
+            if (bluetoothOpts.temperature !== false) {
+                const ability = new TemperatureSensorAbility(group.temperature, enableEveTemperatureHistory);
+                this.registerRpcBluetoothAbility(group.temperature, ability);
+                abilities.push(ability);
+                handledBluetoothComponentKeys.add(group.temperature.key);
+            }
+
+            if (bluetoothOpts.humidity !== false) {
+                const ability = new HumiditySensorAbility(group.humidity, enableEveHumidityHistory);
+                this.registerRpcBluetoothAbility(group.humidity, ability);
+                abilities.push(ability);
+                handledBluetoothComponentKeys.add(group.humidity.key);
+            }
+
+            const batteryComponent = group.battery ?? group.device;
+            if (bluetoothOpts.battery !== false && batteryComponent) {
+                const ability = new BatteryAbility(batteryComponent);
+                this.registerRpcBluetoothAbility(batteryComponent, ability);
+                abilities.push(ability);
+                handledBluetoothComponentKeys.add(batteryComponent.key);
+            }
+
+            if (group.device) {
+                handledBluetoothComponentKeys.add(group.device.key);
+            }
+
+            if (abilities.length > 0) {
+                this.createAccessory(
+                    `bluetooth-environment-${group.id}`,
+                    `Bluetooth Environment ${group.id + 1}`,
+                    ...abilities,
+                );
+            }
+        }
+
         if (bluetoothOpts.temperature !== false) {
-            for (const component of components.filter((c) => this.isBluetoothTemperatureSensor(c))) {
+            for (const component of components.filter(
+                (c) => this.isBluetoothTemperatureSensor(c) && !handledBluetoothComponentKeys.has(c.key),
+            )) {
                 const ability = new TemperatureSensorAbility(component, enableEveTemperatureHistory);
                 this.registerRpcBluetoothAbility(component, ability);
                 this.createAccessory(
@@ -460,7 +544,9 @@ export abstract class DeviceDelegate {
         }
 
         if (bluetoothOpts.humidity !== false) {
-            for (const component of components.filter((c) => this.isBluetoothHumiditySensor(c))) {
+            for (const component of components.filter(
+                (c) => this.isBluetoothHumiditySensor(c) && !handledBluetoothComponentKeys.has(c.key),
+            )) {
                 const ability = new HumiditySensorAbility(component, enableEveHumidityHistory);
                 this.registerRpcBluetoothAbility(component, ability);
                 this.createAccessory(
@@ -473,10 +559,14 @@ export abstract class DeviceDelegate {
 
         if (bluetoothOpts.battery !== false) {
             const batterySensorAddresses = new Set(
-                components.filter((c) => this.isBluetoothBatterySensor(c)).map((c) => String(c.addr ?? '')),
+                components
+                    .filter((c) => this.isBluetoothBatterySensor(c) && !handledBluetoothComponentKeys.has(c.key))
+                    .map((c) => String(c.addr ?? '')),
             );
 
-            for (const component of components.filter((c) => this.isBluetoothBatterySensor(c))) {
+            for (const component of components.filter(
+                (c) => this.isBluetoothBatterySensor(c) && !handledBluetoothComponentKeys.has(c.key),
+            )) {
                 const ability = new BatteryAbility(component);
                 this.registerRpcBluetoothAbility(component, ability);
                 this.createAccessory(
@@ -487,7 +577,10 @@ export abstract class DeviceDelegate {
             }
 
             for (const component of components.filter(
-                (c) => this.isBluetoothDeviceWithBattery(c) && !batterySensorAddresses.has(String(c.addr ?? '')),
+                (c) =>
+                    this.isBluetoothDeviceWithBattery(c) &&
+                    !handledBluetoothComponentKeys.has(c.key) &&
+                    !batterySensorAddresses.has(String(c.addr ?? '')),
             )) {
                 const ability = new BatteryAbility(component);
                 this.registerRpcBluetoothAbility(component, ability);
@@ -500,7 +593,9 @@ export abstract class DeviceDelegate {
         }
 
         if (bluetoothOpts.contact !== false) {
-            for (const component of components.filter((c) => this.isBluetoothContactSensor(c))) {
+            for (const component of components.filter(
+                (c) => this.isBluetoothContactSensor(c) && !handledBluetoothComponentKeys.has(c.key),
+            )) {
                 const ability = new ContactSensorAbility(component, enableEveContactHistory);
                 this.registerRpcBluetoothAbility(component, ability);
                 this.createAccessory(
@@ -528,6 +623,74 @@ export abstract class DeviceDelegate {
             seen.add(component.key);
             return true;
         });
+    }
+
+    /**
+     * Groups Shelly Add-on temperature and humidity components from the same sensor ID.
+     */
+    protected getAddonEnvironmentGroups(components: DiscoverableComponent[]): AddonEnvironmentGroup[] {
+        const groups = new Map<number, Partial<AddonEnvironmentGroup> & { id: number }>();
+
+        for (const component of components) {
+            if (!component.key.startsWith('temperature:') && !component.key.startsWith('humidity:')) {
+                continue;
+            }
+
+            const group = groups.get(component.id) ?? { id: component.id };
+
+            if (component.key.startsWith('temperature:')) {
+                group.temperature = component;
+            }
+
+            if (component.key.startsWith('humidity:')) {
+                group.humidity = component;
+            }
+
+            groups.set(component.id, group);
+        }
+
+        return Array.from(groups.values()).filter(
+            (group): group is AddonEnvironmentGroup => group.temperature !== undefined && group.humidity !== undefined,
+        );
+    }
+
+    /**
+     * Groups Bluetooth/BTHome temperature, humidity and battery components from the same physical device.
+     */
+    protected getBluetoothEnvironmentGroups(components: DiscoverableComponent[]): BluetoothEnvironmentGroup[] {
+        const groups = new Map<string, Partial<BluetoothEnvironmentGroup> & { id: number; address: string }>();
+
+        for (const component of components) {
+            const address =
+                typeof component.addr === 'string' && component.addr.length > 0 ? component.addr : undefined;
+            if (!address) {
+                continue;
+            }
+
+            const group = groups.get(address) ?? {
+                id: component.id,
+                address,
+            };
+
+            if (this.isBluetoothTemperatureSensor(component)) {
+                group.temperature = component;
+                group.id = component.id;
+            } else if (this.isBluetoothHumiditySensor(component)) {
+                group.humidity = component;
+            } else if (this.isBluetoothBatterySensor(component)) {
+                group.battery = component;
+            } else if (this.isBluetoothDeviceWithBattery(component)) {
+                group.device = component;
+                group.id = component.id;
+            }
+
+            groups.set(address, group);
+        }
+
+        return Array.from(groups.values()).filter(
+            (group): group is BluetoothEnvironmentGroup =>
+                group.temperature !== undefined && group.humidity !== undefined,
+        );
     }
 
     /**

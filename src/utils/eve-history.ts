@@ -22,6 +22,10 @@ function now(): number {
  */
 export class EveHistory {
     protected readonly history;
+    protected lastTemperature: number | null = null;
+    protected lastHumidity: number | null = null;
+    protected lastRoomEntrySignature: string | null = null;
+    protected lastRoomEntryTime = 0;
 
     constructor(
         platform: ShellyPlatform,
@@ -40,14 +44,16 @@ export class EveHistory {
      * Records a temperature value in Eve history.
      */
     addTemperature(temperature: number) {
-        this.addEntry({ temp: temperature });
+        this.lastTemperature = temperature;
+        this.addRoomEntry();
     }
 
     /**
      * Records a humidity value in Eve history.
      */
     addHumidity(humidity: number) {
-        this.addEntry({ humidity });
+        this.lastHumidity = humidity;
+        this.addRoomEntry();
     }
 
     /**
@@ -58,11 +64,43 @@ export class EveHistory {
     }
 
     /**
+     * Records the latest room sensor state in Eve history.
+     *
+     * Eve room history works best when temperature and humidity from the same physical sensor are written as one entry.
+     * Single-value temperature sensors, such as DS18B20, still record temperature-only entries.
+     */
+    protected addRoomEntry() {
+        const entry: EveHistoryEntry = {};
+
+        if (this.lastTemperature !== null) {
+            entry.temp = this.lastTemperature;
+        }
+
+        if (this.lastHumidity !== null) {
+            entry.humidity = this.lastHumidity;
+        }
+
+        if (Object.keys(entry).length === 0) {
+            return;
+        }
+
+        const entryTime = now();
+        const signature = JSON.stringify(entry);
+        if (this.lastRoomEntrySignature === signature && entryTime - this.lastRoomEntryTime < 5) {
+            return;
+        }
+
+        this.lastRoomEntrySignature = signature;
+        this.lastRoomEntryTime = entryTime;
+        this.addEntry(entry, entryTime);
+    }
+
+    /**
      * Records a generic fakegato-history entry.
      */
-    protected addEntry(entry: EveHistoryEntry) {
+    protected addEntry(entry: EveHistoryEntry, entryTime = now()) {
         try {
-            this.history.addEntry({ time: now(), ...entry });
+            this.history.addEntry({ time: entryTime, ...entry });
         } catch (e) {
             this.log.warn('Failed to add Eve history entry:', e instanceof Error ? e.message : e);
         }

@@ -1,8 +1,10 @@
-import { CharacteristicValue } from 'homebridge';
+import { CharacteristicValue, PlatformAccessory } from 'homebridge';
 import { CharacteristicValue as ShelliesCharacteristicValue, ComponentLike, Switch } from '@lucavb/shellies-ds9';
 
 import { Ability, ServiceClass } from './base.ts';
 import { createEveDoorHistory, createEveRoomHistory, EveHistory } from '../utils/eve-history.ts';
+import { ShellyPlatform } from '../platform.ts';
+import { DeviceLogger } from '../utils/device-logger.ts';
 
 export class SwitchAbility extends Ability {
     /**
@@ -199,6 +201,19 @@ function readBoolean(component: SensorComponent, ...keys: string[]): boolean | u
     return undefined;
 }
 
+const eveRoomHistories = new Map<string, EveHistory>();
+
+function getEveRoomHistory(platform: ShellyPlatform, accessory: PlatformAccessory, log: DeviceLogger): EveHistory {
+    const history = eveRoomHistories.get(accessory.UUID);
+    if (history) {
+        return history;
+    }
+
+    const newHistory = createEveRoomHistory(platform, accessory, log);
+    eveRoomHistories.set(accessory.UUID, newHistory);
+    return newHistory;
+}
+
 export class TemperatureSensorAbility extends Ability {
     private eveHistory: EveHistory | null = null;
     private eveHistoryInterval: ReturnType<typeof setInterval> | null = null;
@@ -217,7 +232,7 @@ export class TemperatureSensorAbility extends Ability {
 
     protected initialize() {
         if (this.enableEveHistory) {
-            this.eveHistory = createEveRoomHistory(this.platform, this.platformAccessory, this.log);
+            this.eveHistory = getEveRoomHistory(this.platform, this.platformAccessory, this.log);
             this.eveHistoryInterval = setInterval(() => this.recordEveHistory(), 10 * 60 * 1000);
         }
 
@@ -287,7 +302,7 @@ export class HumiditySensorAbility extends Ability {
 
     protected initialize() {
         if (this.enableEveHistory) {
-            this.eveHistory = createEveRoomHistory(this.platform, this.platformAccessory, this.log);
+            this.eveHistory = getEveRoomHistory(this.platform, this.platformAccessory, this.log);
             this.eveHistoryInterval = setInterval(() => this.recordEveHistory(), 10 * 60 * 1000);
         }
 
